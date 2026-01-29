@@ -17,6 +17,7 @@ h2,h4 { color:#FFD700; text-align:center; }
 .btn-pay { background:#FFD700; color:#111; font-weight:bold; }
 .spinner-border-sm { width:1rem; height:1rem; border-width:.15em; display:none; margin-left:5px; }
 .table-responsive { overflow-x:auto; }
+.disabled-row { opacity:0.5; text-decoration:line-through; }
 </style>
 </head>
 <body>
@@ -74,7 +75,7 @@ h2,h4 { color:#FFD700; text-align:center; }
   <div class="card p-3">
     <h4>Payment to Master</h4>
     <p>Monthly Fee: <strong>R199</strong></p>
-    <button class="btn btn-pay w-100" onclick="payMaster()">Pay & Activate License <span class="spinner-border spinner-border-sm" id="paySpinner"></span></button>
+    <button class="btn btn-pay w-100" id="payButton" onclick="payMaster()">Pay & Activate License <span class="spinner-border spinner-border-sm" id="paySpinner"></span></button>
     <p id="licenseStatus" class="text-center mt-2"></p>
   </div>
 
@@ -86,7 +87,7 @@ h2,h4 { color:#FFD700; text-align:center; }
 <script>
 const supabase = supabase.createClient('https://svfgtdqcklmbfyebqtcr.supabase.co', 'sb_publishable_a_-82NkD6MUkSGW1ZdPWMQ_fM9O0Sxl');
 
-let user=null, store=null;
+let user=null, store=null, licenseTimer=null;
 
 function showSpinner(id, show=true){ document.getElementById(id).style.display=show?'inline-block':'none'; }
 
@@ -116,7 +117,7 @@ async function login(btn){
 /* STORE */
 async function ensureStore(){
   const { data } = await supabase.from('stores').select('*').eq('owner_id',user.id).single();
-  store = data || (await supabase.from('stores').insert({ owner_id:user.id }).select().single()).data;
+  store = data || (await supabase.from('stores').insert({ owner_id:user.id, license_start:new Date().toISOString() }).select().single()).data;
   storeName.value=store.name||'';
   storeDirections.value=store.directions||'';
   storeProvince.value=store.province||'';
@@ -124,8 +125,10 @@ async function ensureStore(){
   storeLogo.value=store.logo||'';
   loadProducts();
   updateLicenseStatus();
+  startLicenseCountdown();
 }
 
+/* STORE UPDATE */
 async function updateStore(){
   showSpinner('updateStoreSpinner');
   await supabase.from('stores').update({
@@ -142,6 +145,14 @@ async function updateStore(){
 /* PRODUCTS */
 async function loadProducts(){
   const { data } = await supabase.from('products').select('*').eq('store_id',store.id);
+
+  const now = new Date();
+  const end = store.license_end ? new Date(store.license_end) : null;
+  const graceEnd = end ? new Date(end) : null;
+  if(graceEnd) graceEnd.setDate(graceEnd.getDate()+7);
+
+  const licenseActive = (end && now <= end) || (graceEnd && now <= graceEnd) || (!end && store.license_start && (new Date(store.license_start).getTime()+7*24*60*60*1000 > now.getTime()));
+
   productsTable.innerHTML=data.map(p=>`
     <tr>
       <td>${p.name}</td>
@@ -150,14 +161,28 @@ async function loadProducts(){
       <td>${p.category||''}</td>
       <td>${p.featured?'Featured':'Normal'}</td>
       <td>
-        <button class="btn btn-success btn-sm" onclick="toggleFeature('${p.id}')">Feature</button>
-        <button class="btn btn-danger btn-sm" onclick="removeProduct('${p.id}')">Remove</button>
+        <button class="btn btn-success btn-sm" onclick="toggleFeature('${p.id}')" ${!licenseActive?'disabled':''}>Feature</button>
+        <button class="btn btn-danger btn-sm" onclick="removeProduct('${p.id}')" ${!licenseActive?'disabled':''}>Remove</button>
       </td>
     </tr>
   `).join('');
 }
 
 async function addProductWithSpinner(btn){
+  const now = new Date();
+  const end = store.license_end ? new Date(store.license_end) : null;
+  const graceEnd = end ? new Date(end) : null;
+  if(graceEnd) graceEnd.setDate(graceEnd.getDate()+7);
+  const trialEnd = store.license_start ? new Date(store.license_start) : null;
+  if(trialEnd) trialEnd.setDate(trialEnd.getDate()+7);
+
+  const licenseActive = (end && now <= end) || (graceEnd && now <= graceEnd) || (!end && trialEnd && now <= trialEnd);
+
+  if(!licenseActive){
+    alert('Your trial/license expired. Please pay to continue.');
+    return;
+  }
+
   showSpinner('addProductSpinner');
   await supabase.from('products').insert({
     store_id:store.id,
@@ -185,20 +210,47 @@ async function removeProduct(id){
   loadProducts();
 }
 
-/* PAY MASTER / LICENSE */
+/* LICENSE */
 function updateLicenseStatus(){
-  const status = store.license_end ? new Date(store.license_end) : null;
-  if(!status) licenseStatus.textContent='License: Not Paid (Trial available)';
-  else licenseStatus.textContent='License active until: '+status.toDateString();
+  const now = new Date();
+  const start = store.license_start ? new Date(store.license_start) : null;
+  const end = store.license_end ? new Date(store.license_end) : null;
+  const payBtn = document.getElementById('payButton');
+
+  let trialEnd = start ? new Date(start) : null;
+  if(trialEnd) trialEnd.setDate(trialEnd.getDate()+7);
+  let graceEnd = end ? new Date(end) : null;
+  if(graceEnd) graceEnd.setDate(graceEnd.getDate()+7);
+
+  if(start && !end && now <= trialEnd){
+    licenseStatus.textContent = `Trial period - ends on ${trialEnd.toDateString()}`;
+    payBtn.style.display='none';
+  } else if(end && now <= end){
+    licenseStatus.textContent = `License active until ${end.toDateString()}`;
+    payBtn.style.display='none';
+  } else if(end && now <= graceEnd){
+    licenseStatus.textContent = `Grace period - ends on ${graceEnd.toDateString()}`;
+    payBtn.style.display='inline-block';
+  } else {
+    licenseStatus.textContent = 'License expired!';
+    payBtn.style.display='inline-block';
+  }
+}
+
+function startLicenseCountdown() {
+  if(licenseTimer) clearInterval(licenseTimer);
+
+  licenseTimer = setInterval(() => {
+    updateLicenseStatus();
+  }, 1000);
 }
 
 async function payMaster(){
   showSpinner('paySpinner');
-  // Here you would integrate payment processor (R199)
   const now = new Date();
   let start = store.license_end && new Date(store.license_end) > now ? new Date(store.license_end) : now;
   let end = new Date(start); end.setMonth(end.getMonth()+1); // +1 month
-  await supabase.from('stores').update({ license_start: start, license_end: end }).eq('id',store.id);
+  await supabase.from('stores').update({ license_start:start, license_end:end }).eq('id',store.id);
   alert('Payment successful! License updated.');
   await ensureStore();
   showSpinner('paySpinner',false);
