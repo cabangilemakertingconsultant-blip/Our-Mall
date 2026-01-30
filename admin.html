@@ -1,70 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Admin Login | Our-Mall</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    form {
-      background: #1e1e1e;
-      padding: 20px;
-      border-radius: 8px;
-      width: 300px;
-    }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-    }
-    button {
-      background: #4caf50;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>Admin Panel | Our-Mall</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 20px; }
+  .card { background: #1e1e1e; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+  input, textarea, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: none; }
+  button { cursor: pointer; }
+  .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid #fff; border-top: 2px solid #4caf50; border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 5px; vertical-align: middle; display: none; }
+  @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg); } }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { padding: 8px; border: 1px solid #fff; text-align: left; }
+</style>
 </head>
 <body>
 
-<form id="loginForm">
+<div id="authDiv" class="card">
   <h2>Admin Login</h2>
   <input type="email" id="email" placeholder="Admin email" required />
   <input type="password" id="password" placeholder="Password" required />
-  <button type="submit">Login</button>
+  <button id="loginBtn">Login <span class="spinner" id="loginSpinner"></span></button>
+  <button id="signupBtn">Sign Up <span class="spinner" id="signupSpinner"></span></button>
   <p id="msg"></p>
-</form>
+</div>
+
+<div id="adminPanel" style="display:none;">
+
+  <div class="card">
+    <h2>Welcome Admin!</h2>
+    <button id="logoutBtn">Logout</button>
+  </div>
+
+  <div class="card">
+    <h3>Store Info</h3>
+    <input id="storeName" placeholder="Store Name" />
+    <input id="storeWhatsapp" placeholder="WhatsApp" />
+    <input id="storeLogo" placeholder="Logo URL" />
+    <button id="saveStoreBtn">Save Store Info <span class="spinner" id="storeSpinner"></span></button>
+  </div>
+
+  <div class="card">
+    <h3>Add Product</h3>
+    <input id="productName" placeholder="Product Name" />
+    <input id="productPrice" type="number" placeholder="Price" />
+    <textarea id="productDescription" placeholder="Description"></textarea>
+    <input id="productImages" placeholder="Image URLs (comma separated)" />
+    <button id="addProductBtn">Add Product <span class="spinner" id="productSpinner"></span></button>
+  </div>
+
+  <div class="card">
+    <h3>Products List</h3>
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Price</th><th>Description</th><th>Images</th><th>Action</th></tr>
+      </thead>
+      <tbody id="productsTable"></tbody>
+    </table>
+  </div>
+
+</div>
 
 <script>
-  const supabase = supabase.createClient(
-    "https://svfgtdqcklmbfyebqtcr.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2Zmd0ZHFja2xtYmZ5ZWJxdGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MjYwNzksImV4cCI6MjA4NTIwMjA3OX0.LVAk0Q8rom2cfv-bWIR1rP8UhbA8ZnkXXaEUmXYC2Tc"
-  );
+const supabase = supabase.createClient(
+  "https://svfgtdqcklmbfyebqtcr.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2Zmd0ZHFja2xtYmZ5ZWJxdGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MjYwNzksImV4cCI6MjA4NTIwMjA3OX0.LVAk0Q8rom2cfv-bWIR1rP8UhbA8ZnkXXaEUmXYC2Tc"
+);
 
-  document.getElementById("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
+let user=null, store=null;
 
-    const email = email.value;
-    const password = password.value;
+function showSpinner(id, show=true){ document.getElementById(id).style.display = show ? 'inline-block' : 'none'; }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+// --- AUTH ---
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  showSpinner("loginSpinner", true);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  showSpinner("loginSpinner", false);
+  if(error) { document.getElementById("msg").textContent = error.message; return; }
+  user = data.user;
+  await loadStore();
+  document.getElementById("authDiv").style.display="none";
+  document.getElementById("adminPanel").style.display="block";
+});
 
-    document.getElementById("msg").textContent =
-      error ? error.message : "✅ Login successful";
+document.getElementById("signupBtn").addEventListener("click", async () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  showSpinner("signupSpinner", true);
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  showSpinner("signupSpinner", false);
+  document.getElementById("msg").textContent = error ? error.message : "Sign up successful! Check email.";
+});
+
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  await supabase.auth.signOut();
+  document.getElementById("adminPanel").style.display="none";
+  document.getElementById("authDiv").style.display="block";
+});
+
+// --- STORE ---
+async function loadStore(){
+  const { data } = await supabase.from("stores").select("*").eq("owner_id", user.id).single();
+  store = data || (await supabase.from("stores").insert({ owner_id: user.id }).select().single()).data;
+  document.getElementById("storeName").value = store.name || "";
+  document.getElementById("storeWhatsapp").value = store.whatsapp || "";
+  document.getElementById("storeLogo").value = store.logo || "";
+  loadProducts();
+}
+
+document.getElementById("saveStoreBtn").addEventListener("click", async () => {
+  showSpinner("storeSpinner");
+  await supabase.from("stores").update({
+    name: document.getElementById("storeName").value,
+    whatsapp: document.getElementById("storeWhatsapp").value,
+    logo: document.getElementById("storeLogo").value
+  }).eq("id", store.id);
+  showSpinner("storeSpinner", false);
+  alert("Store info saved!");
+});
+
+// --- PRODUCTS ---
+async function loadProducts(){
+  const { data } = await supabase.from("products").select("*").eq("store_id", store.id);
+  const tbody = document.getElementById("productsTable");
+  tbody.innerHTML = data.map(p=>`
+    <tr>
+      <td>${p.name}</td>
+      <td>R${p.price}</td>
+      <td>${p.description}</td>
+      <td>${(p.images||[]).map(i=>`<img src="${i}" width="40">`).join('')}</td>
+      <td><button onclick="deleteProduct('${p.id}')">Delete</button></td>
+    </tr>
+  `).join("");
+}
+
+document.getElementById("addProductBtn").addEventListener("click", async () => {
+  showSpinner("productSpinner");
+  await supabase.from("products").insert({
+    store_id: store.id,
+    name: document.getElementById("productName").value,
+    price: parseFloat(document.getElementById("productPrice").value),
+    description: document.getElementById("productDescription").value,
+    images: document.getElementById("productImages").value.split(",").map(i=>i.trim())
   });
-</script>
+  loadProducts();
+  showSpinner("productSpinner", false);
+  alert("Product added!");
+});
 
+async function deleteProduct(id){
+  if(!confirm("Delete this product?")) return;
+  await supabase.from("products").delete().eq("id", id);
+  loadProducts();
+}
+</script>
 </body>
 </html>
