@@ -1,94 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Admin | Our-Mall</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-body { background:#111; color:#fff; font-family:Arial; padding:20px }
-input, button { width:100%; padding:10px; margin:5px 0 }
-button { background:#FFD700; border:none; font-weight:bold }
-.card { max-width:400px; margin:auto; background:#1c1c1c; padding:20px }
-</style>
+  <meta charset="UTF-8" />
+  <title>Admin Login | Our-Mall</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    form {
+      background: #1e1e1e;
+      padding: 20px;
+      border-radius: 8px;
+      width: 300px;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    button {
+      background: #4caf50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
 
-<div class="card" id="auth">
-  <h3>Admin Login</h3>
-  <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
-  <button onclick="signup()">Sign Up</button>
-  <button onclick="login()">Login</button>
-  <p id="authMsg"></p>
-</div>
-
-<div class="card" id="panel" style="display:none">
-  <h3>Logged In ✅</h3>
-  <p id="userEmail"></p>
-  <button onclick="createStore()">Create / Load Store</button>
-  <p id="storeMsg"></p>
-  <button onclick="logout()">Logout</button>
-</div>
+<form id="loginForm">
+  <h2>Admin Login</h2>
+  <input type="email" id="email" placeholder="Admin email" required />
+  <input type="password" id="password" placeholder="Password" required />
+  <button type="submit">Login</button>
+  <p id="msg"></p>
+</form>
 
 <script>
-const supabase = supabase.createClient(
-  'https://svfgtdqcklmbfyebqtcr.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2Zmd0ZHFja2xtYmZ5ZWJxdGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MjYwNzksImV4cCI6MjA4NTIwMjA3OX0.LVAk0Q8rom2cfv-bWIR1rP8UhbA8ZnkXXaEUmXYC2Tc'
-);
+  const supabase = supabase.createClient(
+    "https://svfgtdqcklmbfyebqtcr.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2Zmd0ZHFja2xtYmZ5ZWJxdGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MjYwNzksImV4cCI6MjA4NTIwMjA3OX0.LVAk0Q8rom2cfv-bWIR1rP8UhbA8ZnkXXaEUmXYC2Tc"
+  );
 
-let user = null;
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-async function signup(){
-  const { error } = await supabase.auth.signUp({
-    email: email.value,
-    password: password.value
+    const email = email.value;
+    const password = password.value;
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    document.getElementById("msg").textContent =
+      error ? error.message : "✅ Login successful";
   });
-  authMsg.textContent = error ? error.message : 'Signup OK – check email if required';
-}
-
-async function login(){
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.value,
-    password: password.value
-  });
-
-  if (error) {
-    authMsg.textContent = error.message;
-    return;
-  }
-
-  user = data.user;
-  auth.style.display = 'none';
-  panel.style.display = 'block';
-  userEmail.textContent = user.email;
-}
-
-async function createStore(){
-  const { data, error } = await supabase
-    .from('stores')
-    .select('*')
-    .eq('owner_id', user.id)
-    .single();
-
-  if (data) {
-    storeMsg.textContent = 'Store loaded ✔️';
-    return;
-  }
-
-  const { error: insertError } = await supabase
-    .from('stores')
-    .insert({ owner_id: user.id });
-
-  storeMsg.textContent = insertError
-    ? insertError.message
-    : 'Store created ✔️';
-}
-
-async function logout(){
-  await supabase.auth.signOut();
-  location.reload();
-}
 </script>
+
 </body>
 </html>
