@@ -1,162 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Admin Panel | Our-Mall</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Store Admin | Our-Mall</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 20px; }
-  .card { background: #1e1e1e; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-  input, textarea, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: none; }
-  button { cursor: pointer; }
-  .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid #fff; border-top: 2px solid #4caf50; border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 5px; vertical-align: middle; display: none; }
-  @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg); } }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  th, td { padding: 8px; border: 1px solid #fff; text-align: left; }
+body { font-family:'Segoe UI',sans-serif; background:#111; color:#fff; padding:15px; }
+h2 { color:#FFD700; text-align:center; }
+.card { border-radius:10px; background:#1c1c1c; border:1px solid #FFD700; margin-bottom:20px; padding:15px; }
+.spinner-border-sm { width:1rem; height:1rem; border-width:.15em; display:none; margin-left:5px; }
+#message { text-align:center; margin-top:10px; color:#0f0; }
+.btn:active { transform: scale(0.98); opacity:0.7; }
+.product-list img { width:40px; margin-right:5px; border-radius:3px; }
 </style>
 </head>
 <body>
 
-<div id="authDiv" class="card">
-  <h2>Admin Login</h2>
-  <input type="email" id="email" placeholder="Admin email" required />
-  <input type="password" id="password" placeholder="Password" required />
-  <button id="loginBtn">Login <span class="spinner" id="loginSpinner"></span></button>
-  <button id="signupBtn">Sign Up <span class="spinner" id="signupSpinner"></span></button>
-  <p id="msg"></p>
+<h2>Store Admin Panel | Our-Mall</h2>
+
+<!-- AUTH FORM -->
+<div id="authForm" class="d-flex justify-content-center">
+  <div class="card" style="width:100%; max-width:400px;">
+    <h4>Login / Sign Up</h4>
+    <input id="email" type="email" class="form-control mb-2" placeholder="Email">
+    <input id="password" type="password" class="form-control mb-2" placeholder="Password">
+    <button id="loginBtn" class="btn btn-primary w-100 mb-2" onclick="login(this)">
+      Login <span class="spinner-border spinner-border-sm" id="loginSpinner"></span>
+    </button>
+    <button id="signupBtn" class="btn btn-secondary w-100 mb-2" onclick="signup(this)">
+      Sign Up <span class="spinner-border spinner-border-sm" id="signupSpinner"></span>
+    </button>
+    <button id="resendBtn" class="btn btn-info w-100 mb-2" onclick="resendConfirmation(this)">
+      Resend Confirmation Email <span class="spinner-border spinner-border-sm" id="resendSpinner"></span>
+    </button>
+    <div id="message"></div>
+  </div>
 </div>
 
+<!-- ADMIN PANEL -->
 <div id="adminPanel" style="display:none;">
 
   <div class="card">
-    <h2>Welcome Admin!</h2>
-    <button id="logoutBtn">Logout</button>
+    <h4>Welcome, Admin!</h4>
+    <p>You are logged in.</p>
   </div>
 
+  <!-- ADD PRODUCT -->
   <div class="card">
-    <h3>Store Info</h3>
-    <input id="storeName" placeholder="Store Name" />
-    <input id="storeWhatsapp" placeholder="WhatsApp" />
-    <input id="storeLogo" placeholder="Logo URL" />
-    <button id="saveStoreBtn">Save Store Info <span class="spinner" id="storeSpinner"></span></button>
+    <h4>Add Product</h4>
+    <input id="productName" class="form-control mb-2" placeholder="Product Name">
+    <input id="productPrice" type="number" class="form-control mb-2" placeholder="Price">
+    <input id="productImages" class="form-control mb-2" placeholder="Image URLs (comma separated)">
+    <button id="addProductBtn" class="btn btn-success w-100" onclick="addProduct(this)">
+      Add Product <span class="spinner-border spinner-border-sm" id="addProductSpinner"></span>
+    </button>
   </div>
 
+  <!-- PRODUCT LIST -->
   <div class="card">
-    <h3>Add Product</h3>
-    <input id="productName" placeholder="Product Name" />
-    <input id="productPrice" type="number" placeholder="Price" />
-    <textarea id="productDescription" placeholder="Description"></textarea>
-    <input id="productImages" placeholder="Image URLs (comma separated)" />
-    <button id="addProductBtn">Add Product <span class="spinner" id="productSpinner"></span></button>
+    <h4>Your Products</h4>
+    <ul id="productList" class="product-list"></ul>
   </div>
 
-  <div class="card">
-    <h3>Products List</h3>
-    <table>
-      <thead>
-        <tr><th>Name</th><th>Price</th><th>Description</th><th>Images</th><th>Action</th></tr>
-      </thead>
-      <tbody id="productsTable"></tbody>
-    </table>
+  <div class="d-flex justify-content-center">
+    <button class="btn btn-warning w-100" onclick="logout()">Logout</button>
   </div>
-
 </div>
 
 <script>
 const supabase = supabase.createClient(
-  "https://svfgtdqcklmbfyebqtcr.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2Zmd0ZHFja2xtYmZ5ZWJxdGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MjYwNzksImV4cCI6MjA4NTIwMjA3OX0.LVAk0Q8rom2cfv-bWIR1rP8UhbA8ZnkXXaEUmXYC2Tc"
+  'https://svfgtdqcklmbfyebqtcr.supabase.co',
+  'sb_publishable_a_-82NkD6MUkSGW1ZdPWMQ_fM9O0Sxl'
 );
 
-let user=null, store=null;
+let user=null;
 
-function showSpinner(id, show=true){ document.getElementById(id).style.display = show ? 'inline-block' : 'none'; }
+function showSpinner(id, show=true){
+  document.getElementById(id).style.display = show ? 'inline-block' : 'none';
+}
 
-// --- AUTH ---
-document.getElementById("loginBtn").addEventListener("click", async () => {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  showSpinner("loginSpinner", true);
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  showSpinner("loginSpinner", false);
-  if(error) { document.getElementById("msg").textContent = error.message; return; }
-  user = data.user;
-  await loadStore();
-  document.getElementById("authDiv").style.display="none";
-  document.getElementById("adminPanel").style.display="block";
-});
+function showMessage(msg, color='#0f0'){
+  const el = document.getElementById('message');
+  el.textContent = msg;
+  el.style.color = color;
+}
 
-document.getElementById("signupBtn").addEventListener("click", async () => {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  showSpinner("signupSpinner", true);
+/* SIGNUP */
+async function signup(btn){
+  btn.disabled = true; btn.classList.add('active'); showSpinner('signupSpinner'); showMessage('');
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+
+  if(!email || !password){ showMessage('Email and password required!', '#f00'); btn.disabled=false; btn.classList.remove('active'); showSpinner('signupSpinner', false); return; }
+
   const { data, error } = await supabase.auth.signUp({ email, password });
-  showSpinner("signupSpinner", false);
-  document.getElementById("msg").textContent = error ? error.message : "Sign up successful! Check email.";
-});
+  if(error){ showMessage(error.message, '#f00'); }
+  else{ showMessage('Sign up successful! Check your email to confirm.', '#0f0'); }
 
-document.getElementById("logoutBtn").addEventListener("click", async () => {
-  await supabase.auth.signOut();
-  document.getElementById("adminPanel").style.display="none";
-  document.getElementById("authDiv").style.display="block";
-});
-
-// --- STORE ---
-async function loadStore(){
-  const { data } = await supabase.from("stores").select("*").eq("owner_id", user.id).single();
-  store = data || (await supabase.from("stores").insert({ owner_id: user.id }).select().single()).data;
-  document.getElementById("storeName").value = store.name || "";
-  document.getElementById("storeWhatsapp").value = store.whatsapp || "";
-  document.getElementById("storeLogo").value = store.logo || "";
-  loadProducts();
+  btn.disabled=false; btn.classList.remove('active'); showSpinner('signupSpinner', false);
 }
 
-document.getElementById("saveStoreBtn").addEventListener("click", async () => {
-  showSpinner("storeSpinner");
-  await supabase.from("stores").update({
-    name: document.getElementById("storeName").value,
-    whatsapp: document.getElementById("storeWhatsapp").value,
-    logo: document.getElementById("storeLogo").value
-  }).eq("id", store.id);
-  showSpinner("storeSpinner", false);
-  alert("Store info saved!");
-});
+/* LOGIN */
+async function login(btn){
+  btn.disabled = true; btn.classList.add('active'); showSpinner('loginSpinner'); showMessage('');
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
 
-// --- PRODUCTS ---
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  
+  if(error){ showMessage(error.message, '#f00'); btn.disabled=false; btn.classList.remove('active'); showSpinner('loginSpinner', false); return; }
+  if(!data.user.email_confirmed_at){
+    showMessage('Please confirm your email before logging in!', '#f90');
+    await supabase.auth.signOut();
+    btn.disabled=false; btn.classList.remove('active'); showSpinner('loginSpinner', false);
+    return;
+  }
+
+  user = data.user;
+  authForm.style.display = 'none';
+  adminPanel.style.display = 'block';
+  showMessage('Login successful!', '#0f0');
+  loadProducts();
+
+  btn.disabled=false; btn.classList.remove('active'); showSpinner('loginSpinner', false);
+}
+
+/* RESEND CONFIRMATION EMAIL */
+async function resendConfirmation(btn){
+  btn.disabled = true; btn.classList.add('active'); showSpinner('resendSpinner'); showMessage('');
+  const email = document.getElementById('email').value;
+  if(!email){ showMessage('Enter email first!', '#f00'); btn.disabled=false; btn.classList.remove('active'); showSpinner('resendSpinner', false); return; }
+
+  const { data, error } = await supabase.auth.signInWithOtp({ email });
+  if(error){ showMessage(error.message, '#f00'); }
+  else{ showMessage('Confirmation email resent. Check your inbox.', '#0f0'); }
+
+  btn.disabled=false; btn.classList.remove('active'); showSpinner('resendSpinner', false);
+}
+
+/* ADD PRODUCT */
+async function addProduct(btn){
+  btn.disabled=true; btn.classList.add('active'); showSpinner('addProductSpinner'); showMessage('');
+  const name = document.getElementById('productName').value;
+  const price = document.getElementById('productPrice').value;
+  const images = document.getElementById('productImages').value.split(',').map(i=>i.trim());
+
+  if(!name || !price){ showMessage('Name and price required!', '#f00'); btn.disabled=false; btn.classList.remove('active'); showSpinner('addProductSpinner', false); return; }
+
+  const { data, error } = await supabase.from('products').insert({ owner_id: user.id, name, price, images }).select();
+  if(error){ showMessage(error.message, '#f00'); }
+  else{ showMessage('Product added!', '#0f0'); document.getElementById('productName').value=''; document.getElementById('productPrice').value=''; document.getElementById('productImages').value=''; loadProducts(); }
+
+  btn.disabled=false; btn.classList.remove('active'); showSpinner('addProductSpinner', false);
+}
+
+/* LOAD PRODUCTS */
 async function loadProducts(){
-  const { data } = await supabase.from("products").select("*").eq("store_id", store.id);
-  const tbody = document.getElementById("productsTable");
-  tbody.innerHTML = data.map(p=>`
-    <tr>
-      <td>${p.name}</td>
-      <td>R${p.price}</td>
-      <td>${p.description}</td>
-      <td>${(p.images||[]).map(i=>`<img src="${i}" width="40">`).join('')}</td>
-      <td><button onclick="deleteProduct('${p.id}')">Delete</button></td>
-    </tr>
-  `).join("");
+  const { data, error } = await supabase.from('products').select('*').eq('owner_id', user.id);
+  const ul = document.getElementById('productList');
+  ul.innerHTML = '';
+  if(data) data.forEach(p=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>${p.name}</strong> - R${p.price} ${p.images.map(i=>`<img src="${i}">`).join('')}`;
+    ul.appendChild(li);
+  });
 }
 
-document.getElementById("addProductBtn").addEventListener("click", async () => {
-  showSpinner("productSpinner");
-  await supabase.from("products").insert({
-    store_id: store.id,
-    name: document.getElementById("productName").value,
-    price: parseFloat(document.getElementById("productPrice").value),
-    description: document.getElementById("productDescription").value,
-    images: document.getElementById("productImages").value.split(",").map(i=>i.trim())
-  });
-  loadProducts();
-  showSpinner("productSpinner", false);
-  alert("Product added!");
-});
-
-async function deleteProduct(id){
-  if(!confirm("Delete this product?")) return;
-  await supabase.from("products").delete().eq("id", id);
-  loadProducts();
+/* LOGOUT */
+async function logout(){
+  await supabase.auth.signOut();
+  user = null;
+  adminPanel.style.display='none';
+  authForm.style.display='flex';
+  showMessage('');
 }
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
