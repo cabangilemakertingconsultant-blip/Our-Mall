@@ -10,9 +10,7 @@
 body { font-family:'Segoe UI',sans-serif; background:#111; color:#fff; padding:15px; }
 h2 { color:#FFD700; text-align:center; }
 .card { border-radius:10px; background:#1c1c1c; border:1px solid #FFD700; margin-bottom:20px; padding:15px; }
-.spinner-border-sm { width:1rem; height:1rem; border-width:.15em; display:none; margin-left:5px; }
 #message { text-align:center; margin-top:10px; color:#0f0; }
-.btn:active { transform: scale(0.98); opacity:0.7; }
 .product-list img { width:40px; margin-right:5px; border-radius:3px; }
 </style>
 </head>
@@ -26,15 +24,9 @@ h2 { color:#FFD700; text-align:center; }
     <h4>Login / Sign Up</h4>
     <input id="email" type="email" class="form-control mb-2" placeholder="Email">
     <input id="password" type="password" class="form-control mb-2" placeholder="Password">
-    <button id="loginBtn" class="btn btn-primary w-100 mb-2" onclick="login(this)">
-      Login <span class="spinner-border spinner-border-sm" id="loginSpinner"></span>
-    </button>
-    <button id="signupBtn" class="btn btn-secondary w-100 mb-2" onclick="signup(this)">
-      Sign Up <span class="spinner-border spinner-border-sm" id="signupSpinner"></span>
-    </button>
-    <button id="resendBtn" class="btn btn-info w-100 mb-2" onclick="resendConfirmation(this)">
-      Resend Confirmation Email <span class="spinner-border spinner-border-sm" id="resendSpinner"></span>
-    </button>
+    <button class="btn btn-primary w-100 mb-2" onclick="login()">Login</button>
+    <button class="btn btn-secondary w-100 mb-2" onclick="signup()">Sign Up</button>
+    <button class="btn btn-info w-100 mb-2" onclick="resendConfirmation()">Resend Confirmation Email</button>
     <div id="message"></div>
   </div>
 </div>
@@ -53,9 +45,7 @@ h2 { color:#FFD700; text-align:center; }
     <input id="productName" class="form-control mb-2" placeholder="Product Name">
     <input id="productPrice" type="number" class="form-control mb-2" placeholder="Price">
     <input id="productImages" class="form-control mb-2" placeholder="Image URLs (comma separated)">
-    <button id="addProductBtn" class="btn btn-success w-100" onclick="addProduct(this)">
-      Add Product <span class="spinner-border spinner-border-sm" id="addProductSpinner"></span>
-    </button>
+    <button class="btn btn-success w-100" onclick="addProduct()">Add Product</button>
   </div>
 
   <!-- PRODUCT LIST -->
@@ -77,10 +67,6 @@ const supabase = supabase.createClient(
 
 let user=null;
 
-function showSpinner(id, show=true){
-  document.getElementById(id).style.display = show ? 'inline-block' : 'none';
-}
-
 function showMessage(msg, color='#0f0'){
   const el = document.getElementById('message');
   el.textContent = msg;
@@ -88,33 +74,30 @@ function showMessage(msg, color='#0f0'){
 }
 
 /* SIGNUP */
-async function signup(btn){
-  btn.disabled = true; btn.classList.add('active'); showSpinner('signupSpinner'); showMessage('');
+async function signup(){
+  showMessage('');
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
 
-  if(!email || !password){ showMessage('Email and password required!', '#f00'); btn.disabled=false; btn.classList.remove('active'); showSpinner('signupSpinner', false); return; }
+  if(!email || !password){ showMessage('Email and password required!', '#f00'); return; }
 
   const { data, error } = await supabase.auth.signUp({ email, password });
   if(error){ showMessage(error.message, '#f00'); }
   else{ showMessage('Sign up successful! Check your email to confirm.', '#0f0'); }
-
-  btn.disabled=false; btn.classList.remove('active'); showSpinner('signupSpinner', false);
 }
 
 /* LOGIN */
-async function login(btn){
-  btn.disabled = true; btn.classList.add('active'); showSpinner('loginSpinner'); showMessage('');
+async function login(){
+  showMessage('');
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   
-  if(error){ showMessage(error.message, '#f00'); btn.disabled=false; btn.classList.remove('active'); showSpinner('loginSpinner', false); return; }
+  if(error){ showMessage(error.message, '#f00'); return; }
   if(!data.user.email_confirmed_at){
     showMessage('Please confirm your email before logging in!', '#f90');
     await supabase.auth.signOut();
-    btn.disabled=false; btn.classList.remove('active'); showSpinner('loginSpinner', false);
     return;
   }
 
@@ -123,42 +106,42 @@ async function login(btn){
   adminPanel.style.display = 'block';
   showMessage('Login successful!', '#0f0');
   loadProducts();
-
-  btn.disabled=false; btn.classList.remove('active'); showSpinner('loginSpinner', false);
 }
 
 /* RESEND CONFIRMATION EMAIL */
-async function resendConfirmation(btn){
-  btn.disabled = true; btn.classList.add('active'); showSpinner('resendSpinner'); showMessage('');
+async function resendConfirmation(){
+  showMessage('');
   const email = document.getElementById('email').value;
-  if(!email){ showMessage('Enter email first!', '#f00'); btn.disabled=false; btn.classList.remove('active'); showSpinner('resendSpinner', false); return; }
+  if(!email){ showMessage('Enter email first!', '#f00'); return; }
 
   const { data, error } = await supabase.auth.signInWithOtp({ email });
   if(error){ showMessage(error.message, '#f00'); }
   else{ showMessage('Confirmation email resent. Check your inbox.', '#0f0'); }
-
-  btn.disabled=false; btn.classList.remove('active'); showSpinner('resendSpinner', false);
 }
 
 /* ADD PRODUCT */
-async function addProduct(btn){
-  btn.disabled=true; btn.classList.add('active'); showSpinner('addProductSpinner'); showMessage('');
+async function addProduct(){
+  showMessage('');
   const name = document.getElementById('productName').value;
   const price = document.getElementById('productPrice').value;
   const images = document.getElementById('productImages').value.split(',').map(i=>i.trim());
 
-  if(!name || !price){ showMessage('Name and price required!', '#f00'); btn.disabled=false; btn.classList.remove('active'); showSpinner('addProductSpinner', false); return; }
+  if(!name || !price){ showMessage('Name and price required!', '#f00'); return; }
 
   const { data, error } = await supabase.from('products').insert({ owner_id: user.id, name, price, images }).select();
   if(error){ showMessage(error.message, '#f00'); }
-  else{ showMessage('Product added!', '#0f0'); document.getElementById('productName').value=''; document.getElementById('productPrice').value=''; document.getElementById('productImages').value=''; loadProducts(); }
-
-  btn.disabled=false; btn.classList.remove('active'); showSpinner('addProductSpinner', false);
+  else{
+    showMessage('Product added!', '#0f0');
+    document.getElementById('productName').value='';
+    document.getElementById('productPrice').value='';
+    document.getElementById('productImages').value='';
+    loadProducts();
+  }
 }
 
 /* LOAD PRODUCTS */
 async function loadProducts(){
-  const { data, error } = await supabase.from('products').select('*').eq('owner_id', user.id);
+  const { data } = await supabase.from('products').select('*').eq('owner_id', user.id);
   const ul = document.getElementById('productList');
   ul.innerHTML = '';
   if(data) data.forEach(p=>{
